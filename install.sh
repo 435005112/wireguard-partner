@@ -91,7 +91,7 @@ install_ddns_go() {
     
     curl -L -o /tmp/ddns-go.tar.gz "$URL"
     tar -xzf /tmp/ddns-go.tar.gz -C /tmp
-    mv /tmp/ddns-go/ddns-go /usr/local/bin/
+    mv /tmp/ddns-go /usr/local/bin/ddns-go
     chmod +x /usr/local/bin/ddns-go
     ddns-go -s install
     echo "ddns-go 安装完成"
