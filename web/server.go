@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"text/template"
 	"wireguard-partner/internal/tunnel"
 )
