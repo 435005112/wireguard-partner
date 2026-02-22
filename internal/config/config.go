@@ -57,7 +57,7 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("配置文件不存在: %s", path)
 	}
 	
-	data, err := os.ReadFile(path)
+	_, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

@@ -25,7 +25,6 @@ func NewTunnelMgr() *TunnelMgr {
 // CheckInstalled 检查工具是否已安装
 func (m *TunnelMgr) CheckInstalled(p ProtocolType) (bool, error) {
 	var cmd *exec.Cmd
-	var args []string
 	
 	switch p {
 	case ProtocolWSTunnel:
