@@ -109,18 +109,19 @@ install_wstunnel() {
     fi
     
     ARCH=$(uname -m)
-    VERSION=$(curl -s https://api.github.com/repos/erebe/wstunnel/releases/latest | grep -o '"tag_name": "v[^"]*' | cut -d'"' -f4)
+    case $ARCH in
+        x86_64) ARCH="amd64" ;;
+        aarch64) ARCH="arm64" ;;
+    esac
     
-    if [[ "$ARCH" == "x86_64" ]]; then
-        ARCH="x86_64"
-    elif [[ "$ARCH" == "aarch64" ]]; then
-        ARCH="arm64"
-    fi
+    VERSION=$(curl -s https://api.github.com/repos/erebe/wstunnel/releases/latest | grep -o '"tag_name": "v[^"]*' | cut -d'"' -f4 | tr -d 'v')
     
-    URL="https://github.com/erebe/wstunnel/releases/download/v6.15.0/wstunnel-v6.15.0-unknown-linux-${ARCH}"
+    URL="https://github.com/erebe/wstunnel/releases/download/v${VERSION}/wstunnel_${VERSION}_linux_${ARCH}.tar.gz"
     echo "下载: $URL"
     
-    curl -L -o /usr/local/bin/wstunnel "$URL"
+    curl -L -o /tmp/wstunnel.tar.gz "$URL"
+    tar -xzf /tmp/wstunnel.tar.gz -C /tmp
+    mv /tmp/wstunnel /usr/local/bin/
     chmod +x /usr/local/bin/wstunnel
     echo "wstunnel 安装完成"
 }
