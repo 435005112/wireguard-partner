@@ -63,13 +63,13 @@ install_wg_easy() {
         --sysctl="net.ipv4.ip_forward=1" \
         --name wg-easy \
         -e WG_HOST=$(curl -s ifconfig.me) \
-        -e PASSWORD=admin123 \
+        -e PASSWORD_HASH="$2a$12$7qHCKY2cyvjI/VpFDReRDOtZVNk.WH0qH8DOBnHjjuxtfrfKd0aui" \
         -p 51820:51820/udp \
         -p 51821:51821/tcp \
         -v /etc/wireguard:/etc/wireguard \
         --restart=unless-stopped \
         --network wg-network \
-        ghcr.io/wg-easy/wg-easy:latest
+        ghcr.io/wg-easy/wg-easy:14
     echo "wg-easy 安装完成"
 }
 
