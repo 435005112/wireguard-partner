@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 	"wireguard-partner/internal/installer"
+	"wireguard-partner/web"
 )
 
 func main() {
@@ -38,7 +40,17 @@ func main() {
 	}
 
 	fmt.Println("✅ WireGuard 已安装")
-	showStatus()
+	fmt.Println()
+	
+	// 启动Web服务器
+	fmt.Println("启动Web界面...")
+	server := web.NewServer(8080)
+	fmt.Println("========================================")
+	fmt.Println("Web界面: http://localhost:8080")
+	fmt.Println("========================================")
+	if err := server.Run(); err != nil {
+		fmt.Printf("Web服务器错误: %v\n", err)
+	}
 }
 
 func checkWireGuard() error {
@@ -49,16 +61,6 @@ func checkWireGuard() error {
 	}
 	fmt.Printf("WireGuard 版本: %s\n", output)
 	return nil
-}
-
-func showStatus() {
-	cmd := exec.Command("wg", "show")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println("暂无 WireGuard 隧道")
-		return
-	}
-	fmt.Println(string(output))
 }
 
 // WireGuard 管理
