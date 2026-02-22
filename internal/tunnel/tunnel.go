@@ -56,7 +56,7 @@ func (m *TunnelMgr) GetVersion(p ProtocolType) (string, error) {
 	return strings.TrimSpace(string(output)), err
 }
 
-// CreateWireGuardTunnel 创建WireGuard隧道
+// CreateWireGuardTunnel 创建WireGuard隧道配置
 func (m *TunnelMgr) CreateWireGuardTunnel(name, address string, port int) error {
 	// 生成密钥
 	privateKey, err := exec.Command("wg", "genkey").Output()
@@ -71,28 +71,33 @@ func (m *TunnelMgr) CreateWireGuardTunnel(name, address string, port int) error 
 		return fmt.Errorf("生成公钥失败: %v", err)
 	}
 	
-	_ = pubKeyOutput // 公钥待用
+	_ = pubKeyOutput
 	
+	// 创建配置目录和文件
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		homeDir = "/root"
+	}
+	configDir := homeDir + "/.wireguard"
+	os.MkdirAll(configDir, 0755)
+	
+	configPath := configDir + "/" + name + ".conf"
 	config := fmt.Sprintf(`[Interface]
 Address = %s
 ListenPort = %d
 PrivateKey = %s
-SaveConfig = true
 
 [Peer]
-# PublicKey = 
-# AllowedIPs = 0.0.0.0/0
+# Add peer config here
 `, address, port, strings.TrimSpace(string(privateKey)))
 	
-	// 创建配置文件
-	configPath := fmt.Sprintf("/etc/wireguard/%s.conf", name)
-	os.WriteFile(configPath, []byte(config), 0600)
-	
-	// 启动隧道
-	cmd := exec.Command("wg-quick", "up", name)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("启动隧道失败: %v", err)
+	err = os.WriteFile(configPath, []byte(config), 0600)
+	if err != nil {
+		return fmt.Errorf("写入配置失败: %v", err)
 	}
+	
+	fmt.Printf("配置文件已创建: %s\n", configPath)
+	fmt.Printf("请运行: sudo wg-quick up %s\n", name)
 	
 	return nil
 }
