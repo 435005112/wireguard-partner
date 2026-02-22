@@ -397,18 +397,17 @@ func (s *Server) handleWizardRestart(w http.ResponseWriter, r *http.Request) {
 	// 先停止
 	exec.Command("wg-quick", "down", s.wizard.Wireguard.Name).Run()
 	
-	// 写入配置（添加一个空的Peer配置）
+	// 写入配置（不添加Peer，等用户添加）
 	configContent := fmt.Sprintf(`[Interface]
 Address = %s
 ListenPort = %d
 PrivateKey = 
 
-[Peer]
-# Add peer public key and endpoint here
-PublicKey = 
-AllowedIPs = 0.0.0.0/0
-Endpoint = 
-PersistentKeepalive = 25
+# 添加Peer:
+# [Peer]
+# PublicKey = <客户端公钥>
+# Allowed.0.0IPs = 0.0/0
+# Endpoint = <服务器地址:端口>
 `, s.wizard.Wireguard.Address, s.wizard.Wireguard.Port)
 	
 	
