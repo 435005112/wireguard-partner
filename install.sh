@@ -5,7 +5,6 @@ echo "========================================"
 echo "  WireGuard伴侣 - 一键安装"
 echo "========================================"
 
-# 检测系统
 detect_os() {
     if [[ -f /etc/os-release ]]; then
         . /etc/os-release
@@ -13,13 +12,11 @@ detect_os() {
     fi
 }
 
-# 检测架构
 detect_arch() {
     ARCH=$(uname -m)
     echo "架构: $ARCH"
 }
 
-# 检测Docker
 check_docker() {
     if command -v docker &> /dev/null; then
         echo "Docker: 已安装"
@@ -31,7 +28,6 @@ check_docker() {
     fi
 }
 
-# 安装Docker
 install_docker() {
     if command -v apt-get &> /dev/null; then
         apt-get update
@@ -52,7 +48,6 @@ install_docker() {
     echo "Docker 安装完成"
 }
 
-# 安装wg-easy
 install_wg_easy() {
     echo "安装 wg-easy..."
     if docker ps -a | grep -q wg-easy; then
@@ -74,7 +69,6 @@ install_wg_easy() {
     echo "wg-easy 安装完成"
 }
 
-# 安装ddns-go
 install_ddns_go() {
     echo "安装 ddns-go..."
     if pgrep ddns-go &> /dev/null; then
@@ -88,8 +82,12 @@ install_ddns_go() {
         aarch64) ARCH="arm64" ;;
     esac
     
+    # 获取最新版本号
     VERSION=$(curl -s https://api.github.com/repos/jeessy2/ddns-go/releases/latest | grep -o '"tag_name": "v[^"]*' | cut -d'"' -f4)
-    URL="https://github.com/jeessy2/ddns-go/releases/download${VERSION}/ddns-go_${VERSION}_linux_${ARCH}.tar.gz"
+    
+    # 下载
+    URL="https://github.com/jeessy2/ddns-go/releases/download/v6.15.0/ddns-go_6.15.0_linux_${ARCH}.tar.gz"
+    echo "下载: $URL"
     
     curl -L -o /tmp/ddns-go.tar.gz "$URL"
     tar -xzf /tmp/ddns-go.tar.gz -C /tmp
@@ -99,7 +97,6 @@ install_ddns_go() {
     echo "ddns-go 安装完成"
 }
 
-# 安装wstunnel
 install_wstunnel() {
     echo "安装 wstunnel..."
     if command -v wstunnel &> /dev/null; then
@@ -116,12 +113,14 @@ install_wstunnel() {
         ARCH="arm64"
     fi
     
-    curl -L -o /usr/local/bin/wstunnel "https://github.com/erebe/wstunnel/releases/download${VERSION}/wstunnel-${VERSION}-unknown-linux-${ARCH}"
+    URL="https://github.com/erebe/wstunnel/releases/download/v6.15.0/wstunnel-v6.15.0-unknown-linux-${ARCH}"
+    echo "下载: $URL"
+    
+    curl -L -o /usr/local/bin/wstunnel "$URL"
     chmod +x /usr/local/bin/wstunnel
     echo "wstunnel 安装完成"
 }
 
-# 主菜单
 main() {
     detect_os
     detect_arch
