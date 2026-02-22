@@ -3,6 +3,8 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
 	"text/template"
 	"wireguard-partner/internal/tunnel"
 )
@@ -384,7 +386,42 @@ func (s *Server) handleWizardTunnel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleWizardRestart(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "服务重启中...(需手动执行 sudo wg-quick up %s)", s.wizard.Wireguard.Name)
+	// 保存配置
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		homeDir = "/root"
+	}
+	configDir := homeDir + "/.wireguard"
+	configPath := configDir + "/" + s.wizard.Wireguard.Name + ".conf"
+	
+	// 先停止
+	exec.Command("wg-quick", "down", s.wizard.Wireguard.Name).Run()
+	
+	// 写入配置
+	configContent := fmt.Sprintf(`[Interface]
+Address = %s
+ListenPort = %d
+
+[Peer]
+# Add peers here
+`, s.wizard.Wireguard.Address, s.wizard.Wireguard.Port)
+	
+	
+	
+	os.MkdirAll(configDir, 0700)
+	os.WriteFile(configPath, []byte(configContent), 0600)
+	
+	// 启动
+	cmd := exec.Command("wg-quick", "up", s.wizard.Wireguard.Name)
+	output, err := cmd.CombinedOutput()
+	
+	if err != nil {
+		fmt.Fprintf(w, "启动失败: %v<br>%s<br><a href='/'>返回</a>", err, output)
+		return
+	}
+	
+	fmt.Fprintf(w, "✅ 服务已启动!<br>隧道: %s<br>地址: %s<br><a href='/'>返回概览</a>", 
+		s.wizard.Wireguard.Name, s.wizard.Wireguard.Address)
 }
 
 func (s *Server) generateConfig() {
