@@ -76,27 +76,70 @@ var htmlTemplates = map[string]string{
             <form method="POST" action="/wizard/ddns">
                 <div class="form-group">
                     <label>DNS服务商</label>
-                    <select name="provider">
+                    <select name="provider" id="provider" onchange="updateDDNSFields()">
                         <option value="aliyun">阿里云</option>
                         <option value="cloudflare">Cloudflare</option>
                         <option value="dnspod">腾讯云DNSPod</option>
+                        <option value="huawei">华为云</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>完整域名</label>
                     <input type="text" name="domain" placeholder="vpn.example.com">
                 </div>
-                <div class="form-group">
-                    <label>API Key</label>
-                    <input type="text" name="apiKey">
+                
+                <div id="aliyun-fields">
+                    <div class="form-group">
+                        <label>AccessKey ID</label>
+                        <input type="text" name="accessKeyId">
+                    </div>
+                    <div class="form-group">
+                        <label>AccessKey Secret</label>
+                        <input type="password" name="accessKeySecret">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>API Secret</label>
-                    <input type="password" name="apiSecret">
+                
+                <div id="cloudflare-fields" style="display:none">
+                    <div class="form-group">
+                        <label>API Token</label>
+                        <input type="text" name="apiToken" placeholder="Cloudflare API Token">
+                    </div>
+                    <div class="form-group">
+                        <label>Zone ID (可选)</label>
+                        <input type="text" name="zoneId">
+                    </div>
                 </div>
+                
+                <div id="dnspod-fields" style="display:none">
+                    <div class="form-group">
+                        <label>Token (ID + Token)</label>
+                        <input type="text" name="token" placeholder="ID,Token 格式">
+                    </div>
+                </div>
+                
+                <div id="huawei-fields" style="display:none">
+                    <div class="form-group">
+                        <label>Access Key</label>
+                        <input type="text" name="accessKey">
+                    </div>
+                    <div class="form-group">
+                        <label>Secret Key</label>
+                        <input type="password" name="secretKey">
+                    </div>
+                </div>
+                
                 <div class="tips">如不使用DDNS，可直接点击下一步跳过</div>
                 <button type="submit" class="btn">下一步</button>
             </form>
+            <script>
+            function updateDDNSFields() {
+                var provider = document.getElementById('provider').value;
+                document.getElementById('aliyun-fields').style.display = (provider == 'aliyun') ? 'block' : 'none';
+                document.getElementById('cloudflare-fields').style.display = (provider == 'cloudflare') ? 'block' : 'none';
+                document.getElementById('dnspod-fields').style.display = (provider == 'dnspod') ? 'block' : 'none';
+                document.getElementById('huawei-fields').style.display = (provider == 'huawei') ? 'block' : 'none';
+            }
+            </script>
             {{end}}
             
             {{if eq .Step 3}}
