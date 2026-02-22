@@ -24,16 +24,18 @@ func NewTunnelMgr() *TunnelMgr {
 
 // CheckInstalled 检查工具是否已安装
 func (m *TunnelMgr) CheckInstalled(p ProtocolType) (bool, error) {
-	var cmd *exec.Cmd
+	var name string
 	
 	switch p {
 	case ProtocolWSTunnel:
-		cmd = exec.Command("wstunnel", "--version")
+		name = "wstunnel"
 	case ProtocolUDP2Raw:
-		cmd = exec.Command("udp2raw", "--version")
+		name = "udp2raw"
 	}
 	
-	if err := cmd.Run(); err != nil {
+	// 使用LookPath检测命令是否存在
+	_, err := exec.LookPath(name)
+	if err != nil {
 		return false, nil
 	}
 	return true, nil
