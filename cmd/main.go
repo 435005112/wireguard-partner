@@ -1,25 +1,43 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"wireguard-partner/internal/installer"
 )
 
 func main() {
+	isInstall := flag.Bool("install", false, "运行安装向导")
+	flag.Parse()
+
 	fmt.Println("WireGuard 伴侣")
 	fmt.Println("================")
-	
-	// 检查 WireGuard 是否安装
-	if err := checkWireGuard(); err != nil {
-		fmt.Printf("错误: %v\n", err)
-		os.Exit(1)
+
+	// 如果指定了-install参数，运行安装向导
+	if *isInstall {
+		fmt.Println()
+		fmt.Println("正在检测环境并安装依赖...")
+		fmt.Println()
+		if err := installer.QuickInstall(); err != nil {
+			fmt.Printf("安装失败: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
-	
-	fmt.Println("WireGuard 已安装")
-	
-	// 显示当前状态
+
+	// 检查WireGuard是否安装
+	if err := checkWireGuard(); err != nil {
+		fmt.Printf("提示: %v\n", err)
+		fmt.Println()
+		fmt.Println("运行安装向导:")
+		fmt.Println("  ./wg-partner -install")
+		return
+	}
+
+	fmt.Println("✅ WireGuard 已安装")
 	showStatus()
 }
 
@@ -29,7 +47,7 @@ func checkWireGuard() error {
 	if err != nil {
 		return fmt.Errorf("WireGuard 未安装: %v", err)
 	}
-	fmt.Printf("WireGuard 版本: %s", output)
+	fmt.Printf("WireGuard 版本: %s\n", output)
 	return nil
 }
 
@@ -52,7 +70,6 @@ func NewWireGuardMgr(configPath string) *WireGuardMgr {
 	return &WireGuardMgr{configPath: configPath}
 }
 
-// ListTunnels 列出所有隧道
 func (m *WireGuardMgr) ListTunnels() ([]string, error) {
 	cmd := exec.Command("wg", "show", "interfaces")
 	output, err := cmd.CombinedOutput()
@@ -62,27 +79,20 @@ func (m *WireGuardMgr) ListTunnels() ([]string, error) {
 	return strings.Split(strings.TrimSpace(string(output)), "\n"), nil
 }
 
-// GetTunnelStatus 获取隧道状态
 func (m *WireGuardMgr) GetTunnelStatus(iface string) (string, error) {
 	cmd := exec.Command("wg", "show", iface)
 	output, err := cmd.CombinedOutput()
 	return string(output), err
 }
 
-// GenerateKeyPair 生成密钥对
 func (m *WireGuardMgr) GenerateKeyPair() (string, string, error) {
-	// 生成私钥
 	cmd1 := exec.Command("wg", "genkey")
 	privateKey, err := cmd1.Output()
 	if err != nil {
 		return "", "", err
 	}
-	
-	// 生成公钥
 	cmd2 := exec.Command("wg", "pubkey")
 	cmd2.Stdin = strings.NewReader(string(privateKey))
 	publicKey, err := cmd2.Output()
-	
-	return strings.TrimSpace(string(privateKey)), 
-	       strings.TrimSpace(string(publicKey)), err
+	return strings.TrimSpace(string(privateKey)), strings.TrimSpace(string(publicKey)), err
 }
