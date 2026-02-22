@@ -9,15 +9,157 @@ import (
 )
 
 var htmlTemplates = map[string]string{
+	"wizard": `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>WireGuard 伴侣 - 安装向导</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 50px auto; padding: 2rem; }
+        .card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #2563eb; margin-bottom: 0.5rem; }
+        h2 { color: #1f2937; margin: 1.5rem 0 1rem; }
+        .step { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .step-num { width: 32px; height: 32px; background: #2563eb; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .step.done .step-num { background: #10b981; }
+        .step.active .step-num { background: #2563eb; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; color: #374151; }
+        .form-group input, .form-group select { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 1rem; }
+        .btn { display: inline-block; padding: 0.75rem 1.5rem; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+        .btn:hover { background: #1d4ed8; }
+        .btn-secondary { background: #6b7280; }
+        .btn-secondary:hover { background: #4b5563; }
+        .btn-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .tips { background: #fef3c7; padding: 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.875rem; color: #92400e; }
+        .success { background: #d1fae5; padding: 1rem; border-radius: 8px; margin: 1rem 0; color: #065f46; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>WireGuard 伴侣</h1>
+            <p style="color: #6b7280; margin-bottom: 2rem;">欢迎使用安装向导，请依次完成以下配置</p>
+            
+            <div class="step done">
+                <div class="step-num">1</div>
+                <div>WireGuard 配置</div>
+            </div>
+            <div class="step {{if .Step2}}done{{else}}active{{end}}">
+                <div class="step-num">2</div>
+                <div>DDNS 配置</div>
+            </div>
+            <div class="step {{if .Step3}}done{{else}}active{{end}}">
+                <div class="step-num">3</div>
+                <div>协议封装配置</div>
+            </div>
+            
+            {{if .Step1}}
+            <h2>第一步：WireGuard 配置</h2>
+            <form method="POST" action="/wizard/wireguard">
+                <div class="form-group">
+                    <label>隧道名称</label>
+                    <input type="text" name="name" placeholder="wg0" value="{{.Wireguard.Name}}" required>
+                </div>
+                <div class="form-group">
+                    <label>服务器地址 (CIDR格式)</label>
+                    <input type="text" name="address" placeholder="10.0.0.1/24" value="{{.Wireguard.Address}}" required>
+                </div>
+                <div class="form-group">
+                    <label>监听端口</label>
+                    <input type="number" name="port" value="{{.Wireguard.Port}}" required>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn">下一步</button>
+                </div>
+            </form>
+            {{end}}
+            
+            {{if .Step2}}
+            <h2>第二步：DDNS 配置</h2>
+            <form method="POST" action="/wizard/ddns">
+                <div class="form-group">
+                    <label>DNS服务商</label>
+                    <select name="provider">
+                        <option value="aliyun">阿里云</option>
+                        <option value="cloudflare">Cloudflare</option>
+                        <option value="dnspod">腾讯云DNSPod</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>完整域名</label>
+                    <input type="text" name="domain" placeholder="vpn.example.com">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="text" name="apiKey" placeholder="API Key">
+                </div>
+                <div class="form-group">
+                    <label>API Secret</label>
+                    <input type="password" name="apiSecret" placeholder="API Secret">
+                </div>
+                <div class="tips">如不使用DDNS，可直接点击下一步跳过</div>
+                <div class="btn-group">
+                    <button type="submit" class="btn">下一步</button>
+                </div>
+            </form>
+            {{end}}
+            
+            {{if .Step3}}
+            <h2>第三步：协议封装配置</h2>
+            <form method="POST" action="/wizard/tunnel">
+                <div class="form-group">
+                    <label>协议类型</label>
+                    <select name="type">
+                        <option value="none">不启用</option>
+                        <option value="wstunnel">wstunnel (WebSocket)</option>
+                        <option value="udp2raw">udp2raw (UDP伪装TCP)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>远程服务器地址</label>
+                    <input type="text" name="server" placeholder="如需使用请填写">
+                </div>
+                <div class="form-group">
+                    <label>端口</label>
+                    <input type="number" name="port" value="443">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" name="password" placeholder="可选">
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn">完成配置</button>
+                </div>
+            </form>
+            {{end}}
+            
+            {{if .Done}}
+            <div class="success">
+                <h2>配置完成！</h2>
+                <p>配置文件已生成，请点击下方按钮重启服务使配置生效</p>
+            </div>
+            <div class="btn-group">
+                <a href="/wizard/restart" class="btn">重启服务</a>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</body>
+</html>`,
+
 	"index": `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <title>WireGuard 伴侣</title>
+    <meta http-equiv="refresh" content="30">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; }
-        .header { background: #2563eb; color: white; padding: 1rem 2rem; }
+        .header { background: #2563eb; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
         .header h1 { font-size: 1.5rem; }
         .nav { background: white; padding: 0 2rem; border-bottom: 1px solid #e5e7eb; }
         .nav ul { display: flex; list-style: none; gap: 2rem; }
@@ -36,19 +178,12 @@ var htmlTemplates = map[string]string{
         .status-item .value.stopped { color: #6b7280; }
         .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; }
         .btn:hover { background: #1d4ed8; }
-        .btn-danger { background: #ef4444; }
-        .btn-danger:hover { background: #dc2626; }
-        .form-group { margin-bottom: 1rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; color: #374151; }
-        .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background: #f9fafb; font-weight: 600; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>WireGuard 伴侣</h1>
+        <a href="/wizard" style="color: white; text-decoration: none;">重新配置</a>
     </div>
     <nav class="nav">
         <ul>
@@ -56,12 +191,11 @@ var htmlTemplates = map[string]string{
             <li><a href="/wireguard">WireGuard</a></li>
             <li><a href="/ddns">DDNS</a></li>
             <li><a href="/tunnel">协议封装</a></li>
-            <li><a href="/monitor">监控</a></li>
         </ul>
     </nav>
     <div class="container">
         <div class="card">
-            <h2>模块状态</h2>
+            <h2>模块状态 (自动刷新)</h2>
             <div class="status-grid">
                 <div class="status-item">
                     <div class="label">WireGuard 隧道</div>
@@ -75,11 +209,15 @@ var htmlTemplates = map[string]string{
                     <div class="label">udp2raw</div>
                     <div class="value {{if .Status.UDP2Raw.Running}}running{{else}}stopped{{end}}">{{if .Status.UDP2Raw.Running}}运行中{{else}}未运行{{end}}</div>
                 </div>
+                <div class="status-item">
+                    <div class="label">DDNS</div>
+                    <div class="value {{if .DDNSEnabled}}ok{{else}}stopped{{end}}">{{if .DDNSEnabled}}已配置{{else}}未配置{{end}}</div>
+                </div>
             </div>
         </div>
         <div class="card">
             <h2>快速操作</h2>
-            <p><a href="/wireguard" class="btn">管理 WireGuard 隧道</a></p>
+            <p><a href="/wireguard" class="btn">管理 WireGuard</a></p>
         </div>
     </div>
 </body>
@@ -102,14 +240,9 @@ var htmlTemplates = map[string]string{
         .card h2 { margin-bottom: 1rem; color: #1f2937; }
         .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; }
         .btn:hover { background: #1d4ed8; }
-        .btn-danger { background: #ef4444; }
-        .btn-danger:hover { background: #dc2626; }
         .form-group { margin-bottom: 1rem; }
         .form-group label { display: block; margin-bottom: 0.5rem; color: #374151; }
         .form-group input { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background: #f9fafb; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -120,50 +253,12 @@ var htmlTemplates = map[string]string{
             <li><a href="/wireguard" class="active">WireGuard</a></li>
             <li><a href="/ddns">DDNS</a></li>
             <li><a href="/tunnel">协议封装</a></li>
-            <li><a href="/monitor">监控</a></li>
         </ul>
     </nav>
     <div class="container">
         <div class="card">
-            <h2>WireGuard 隧道列表</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>接口名称</th>
-                        <th>状态</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{range .Tunnels}}
-                    <tr>
-                        <td>{{.}}</td>
-                        <td>活跃</td>
-                        <td><a href="/wireguard/delete/{{.}}" class="btn btn-danger" onclick="return confirm('确定删除?')">删除</a></td>
-                    </tr>
-                    {{else}}
-                    <tr><td colspan="3">暂无隧道</td></tr>
-                    {{end}}
-                </tbody>
-            </table>
-        </div>
-        <div class="card">
-            <h2>创建新隧道</h2>
-            <form method="POST" action="/api/wireguard/create">
-                <div class="form-group">
-                    <label>接口名称</label>
-                    <input type="text" name="name" placeholder="wg0" required>
-                </div>
-                <div class="form-group">
-                    <label>服务器地址 (CIDR)</label>
-                    <input type="text" name="address" placeholder="10.0.0.1/24" required>
-                </div>
-                <div class="form-group">
-                    <label>监听端口</label>
-                    <input type="number" name="port" value="51820" required>
-                </div>
-                <button type="submit" class="btn">创建隧道</button>
-            </form>
+            <h2>当前配置</h2>
+            <pre>{{.Config}}</pre>
         </div>
     </div>
 </body>
@@ -184,11 +279,6 @@ var htmlTemplates = map[string]string{
         .container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
         .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card h2 { margin-bottom: 1rem; color: #1f2937; }
-        .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        .btn:hover { background: #1d4ed8; }
-        .form-group { margin-bottom: 1rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; color: #374151; }
-        .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
     </style>
 </head>
 <body>
@@ -199,45 +289,13 @@ var htmlTemplates = map[string]string{
             <li><a href="/wireguard">WireGuard</a></li>
             <li><a href="/ddns" class="active">DDNS</a></li>
             <li><a href="/tunnel">协议封装</a></li>
-            <li><a href="/monitor">监控</a></li>
         </ul>
     </nav>
     <div class="container">
         <div class="card">
             <h2>DDNS 配置</h2>
-            <form method="POST" action="/api/ddns/config">
-                <div class="form-group">
-                    <label>DNS服务商</label>
-                    <select name="provider">
-                        <option value="aliyun">阿里云</option>
-                        <option value="cloudflare">Cloudflare</option>
-                        <option value="dnspod">腾讯云DNSPod</option>
-                        <option value="huawei">华为云</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>域名</label>
-                    <input type="text" name="domain" placeholder="example.com">
-                </div>
-                <div class="form-group">
-                    <label>子域名</label>
-                    <input type="text" name="subdomain" placeholder="vpn">
-                </div>
-                <div class="form-group">
-                    <label>API Key</label>
-                    <input type="text" name="apiKey" placeholder="API Key">
-                </div>
-                <div class="form-group">
-                    <label>API Secret</label>
-                    <input type="password" name="apiSecret" placeholder="API Secret">
-                </div>
-                <button type="submit" class="btn">保存配置</button>
-            </form>
-        </div>
-        <div class="card">
-            <h2>说明</h2>
-            <p>保存配置后，DDNS服务将自动启动并监听端口 9876</p>
-            <p>访问 http://{{.Host}}:9876 管理DDNS</p>
+            <p>请通过安装向导配置DDNS</p>
+            <p><a href="/wizard">前往向导</a></p>
         </div>
     </div>
 </body>
@@ -258,11 +316,6 @@ var htmlTemplates = map[string]string{
         .container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
         .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card h2 { margin-bottom: 1rem; color: #1f2937; }
-        .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        .btn:hover { background: #1d4ed8; }
-        .form-group { margin-bottom: 1rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; color: #374151; }
-        .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
     </style>
 </head>
 <body>
@@ -273,142 +326,53 @@ var htmlTemplates = map[string]string{
             <li><a href="/wireguard">WireGuard</a></li>
             <li><a href="/ddns">DDNS</a></li>
             <li><a href="/tunnel" class="active">协议封装</a></li>
-            <li><a href="/monitor">监控</a></li>
         </ul>
     </nav>
     <div class="container">
         <div class="card">
-            <h2>wstunnel 配置</h2>
-            <form method="POST" action="/api/tunnel/ws/config">
-                <div class="form-group">
-                    <label>启用</label>
-                    <select name="enable">
-                        <option value="false">关闭</option>
-                        <option value="true">启用</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>本地监听端口</label>
-                    <input type="number" name="localPort" value="51820">
-                </div>
-                <div class="form-group">
-                    <label>远程服务器</label>
-                    <input type="text" name="remote" placeholder="example.com:443">
-                </div>
-                <button type="submit" class="btn">保存配置</button>
-            </form>
-        </div>
-        <div class="card">
-            <h2>udp2raw 配置</h2>
-            <form method="POST" action="/api/tunnel/udp2raw/config">
-                <div class="form-group">
-                    <label>启用</label>
-                    <select name="enable">
-                        <option value="false">关闭</option>
-                        <option value="true">启用</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>本地端口</label>
-                    <input type="number" name="localPort" value="51820">
-                </div>
-                <div class="form-group">
-                    <label>远程服务器</label>
-                    <input type="text" name="remote" placeholder="example.com:443">
-                </div>
-                <div class="form-group">
-                    <label>密码</label>
-                    <input type="password" name="password" placeholder="密码">
-                </div>
-                <button type="submit" class="btn">保存配置</button>
-            </form>
-        </div>
-    </div>
-</body>
-</html>`,
-
-	"monitor": `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>监控 - WireGuard 伴侣</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; margin: 0; }
-        .header { background: #2563eb; color: white; padding: 1rem 2rem; }
-        .nav { background: white; padding: 0 2rem; border-bottom: 1px solid #e5e7eb; }
-        .nav ul { display: flex; list-style: none; gap: 2rem; margin: 0; }
-        .nav a { display: block; padding: 1rem 0; color: #6b7280; text-decoration: none; border-bottom: 2px solid transparent; }
-        .nav a:hover, .nav a.active { color: #2563eb; border-color: #2563eb; }
-        .container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
-        .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .card h2 { margin-bottom: 1rem; color: #1f2937; }
-        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-        .status-item { padding: 1.5rem; background: #f9fafb; border-radius: 8px; text-align: center; }
-        .status-item .name { font-size: 1.25rem; font-weight: bold; margin-bottom: 0.5rem; }
-        .status-item .info { color: #6b7280; margin-bottom: 0.5rem; }
-        .status-item .state { font-size: 1.5rem; font-weight: bold; }
-        .status-item .state.running { color: #10b981; }
-        .status-item .state.stopped { color: #6b7280; }
-        .status-item .state.error { color: #ef4444; }
-        .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; }
-        .btn-danger { background: #ef4444; }
-    </style>
-</head>
-<body>
-    <div class="header"><h1>WireGuard 伴侣</h1></div>
-    <nav class="nav">
-        <ul>
-            <li><a href="/">概览</a></li>
-            <li><a href="/wireguard">WireGuard</a></li>
-            <li><a href="/ddns">DDNS</a></li>
-            <li><a href="/tunnel">协议封装</a></li>
-            <li><a href="/monitor" class="active">监控</a></li>
-        </ul>
-    </nav>
-    <div class="container">
-        <div class="card">
-            <h2>模块运行状态</h2>
-            <div class="status-grid">
-                <div class="status-item">
-                    <div class="name">WireGuard</div>
-                    <div class="info">隧道数: {{.Status.Wireguard.Count}}</div>
-                    {{if .Status.Wireguard.Count}}
-                    <div class="state running">运行中</div>
-                    {{else}}
-                    <div class="state stopped">无隧道</div>
-                    {{end}}
-                </div>
-                <div class="status-item">
-                    <div class="name">wstunnel</div>
-                    <div class="info">WebSocket隧道</div>
-                    {{if .Status.WSTunnel.Running}}
-                    <div class="state running">运行中</div>
-                    {{else}}
-                    <div class="state stopped">未运行</div>
-                    {{end}}
-                </div>
-                <div class="status-item">
-                    <div class="name">udp2raw</div>
-                    <div class="info">UDP伪TCP</div>
-                    {{if .Status.UDP2Raw.Running}}
-                    <div class="state running">运行中</div>
-                    {{else}}
-                    <div class="state stopped">未运行</div>
-                    {{end}}
-                </div>
-            </div>
+            <h2>协议封装配置</h2>
+            <p>请通过安装向导配置协议封装</p>
+            <p><a href="/wizard">前往向导</a></p>
         </div>
     </div>
 </body>
 </html>`,
 }
 
+// WizardData 向导数据
+type WizardData struct {
+	Step1 bool
+	Step2 bool
+	Step3 bool
+	Done  bool
+	Wireguard struct {
+		Name    string
+		Address string
+		Port    int
+	}
+	DDNS struct {
+		Provider  string
+		Domain    string
+		APIKey    string
+		APISecret string
+	}
+	Tunnel struct {
+		Type     string
+		Server   string
+		Port     int
+		Password string
+	}
+	DDNSEnabled bool
+}
+
 // Server Web服务器
 type Server struct {
-	port     int
-	mux      *http.ServeMux
-	tmpls    map[string]*template.Template
+	port      int
+	mux       *http.ServeMux
+	tmpls     map[string]*template.Template
 	tunnelMgr *tunnel.TunnelMgr
+	wizard    *WizardData
+	config    string
 }
 
 // NewServer 创建Web服务器
@@ -418,6 +382,7 @@ func NewServer(port int) *Server {
 		mux:       http.NewServeMux(),
 		tmpls:     make(map[string]*template.Template),
 		tunnelMgr: tunnel.NewTunnelMgr(),
+		wizard:    &WizardData{},
 	}
 	
 	for name, html := range htmlTemplates {
@@ -430,98 +395,108 @@ func NewServer(port int) *Server {
 
 func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/", s.handleIndex)
+	s.mux.HandleFunc("/wizard", s.handleWizard)
+	s.mux.HandleFunc("/wizard/wireguard", s.handleWizardWireguard)
+	s.mux.HandleFunc("/wizard/ddns", s.handleWizardDDNS)
+	s.mux.HandleFunc("/wizard/tunnel", s.handleWizardTunnel)
+	s.mux.HandleFunc("/wizard/restart", s.handleWizardRestart)
 	s.mux.HandleFunc("/wireguard", s.handleWireGuard)
 	s.mux.HandleFunc("/ddns", s.handleDDNS)
 	s.mux.HandleFunc("/tunnel", s.handleTunnel)
-	s.mux.HandleFunc("/monitor", s.handleMonitor)
-	s.mux.HandleFunc("/api/status", s.handleAPIStatus)
-	s.mux.HandleFunc("/api/wireguard/create", s.handleWireGuardCreate)
-	s.mux.HandleFunc("/api/wireguard/delete/", s.handleWireGuardDelete)
-	s.mux.HandleFunc("/api/ddns/config", s.handleDDNSConfig)
-	s.mux.HandleFunc("/api/tunnel/ws/config", s.handleTunnelWSConfig)
-	s.mux.HandleFunc("/api/tunnel/udp2raw/config", s.handleTunnelUDP2RawConfig)
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	status := s.tunnelMgr.GetModuleStatus()
 	s.tmpls["index"].Execute(w, map[string]interface{}{
-		"Status": status,
+		"Status":     status,
+		"DDNSEnabled": s.wizard.DDNS.Provider != "",
 	})
 }
 
+func (s *Server) handleWizard(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		// 重置向导
+		s.wizard = &WizardData{}
+	}
+	s.tmpls["wizard"].Execute(w, s.wizard)
+}
+
+func (s *Server) handleWizardWireguard(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	s.wizard.Step1 = true
+	s.wizard.Wireguard.Name = r.Form.Get("name")
+	s.wizard.Wireguard.Address = r.Form.Get("address")
+	fmt.Sscanf(r.Form.Get("port"), "%d", &s.wizard.Wireguard.Port)
+	
+	s.generateConfig()
+	s.tmpls["wizard"].Execute(w, s.wizard)
+}
+
+func (s *Server) handleWizardDDNS(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	s.wizard.Step2 = true
+	s.wizard.DDNS.Provider = r.Form.Get("provider")
+	s.wizard.DDNS.Domain = r.Form.Get("domain")
+	s.wizard.DDNS.APIKey = r.Form.Get("apiKey")
+	s.wizard.DDNS.APISecret = r.Form.Get("apiSecret")
+	
+	s.generateConfig()
+	s.tmpls["wizard"].Execute(w, s.wizard)
+}
+
+func (s *Server) handleWizardTunnel(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	s.wizard.Step3 = true
+	s.wizard.Tunnel.Type = r.Form.Get("type")
+	s.wizard.Tunnel.Server = r.Form.Get("server")
+	fmt.Sscanf(r.Form.Get("port"), "%d", &s.wizard.Tunnel.Port)
+	s.wizard.Tunnel.Password = r.Form.Get("password")
+	s.wizard.Done = true
+	
+	s.generateConfig()
+	s.tmpls["wizard"].Execute(w, s.wizard)
+}
+
+func (s *Server) handleWizardRestart(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "服务重启中... (暂未实现)")
+}
+
+func (s *Server) generateConfig() {
+	s.config = "# WireGuard 配置\n"
+	s.config += fmt.Sprintf("[Interface]\nAddress = %s\nListenPort = %d\n", 
+		s.wizard.Wireguard.Address, s.wizard.Wireguard.Port)
+	
+	if s.wizard.DDNS.Domain != "" {
+		s.config += "\n# DDNS 配置\n"
+		s.config += fmt.Sprintf("Domain: %s\nProvider: %s\n", 
+			s.wizard.DDNS.Domain, s.wizard.DDNS.Provider)
+	}
+	
+	if s.wizard.Tunnel.Type != "none" {
+		s.config += "\n# 协议封装配置\n"
+		s.config += fmt.Sprintf("Type: %s\nServer: %s:%d\n", 
+			s.wizard.Tunnel.Type, s.wizard.Tunnel.Server, s.wizard.Tunnel.Port)
+	}
+}
+
 func (s *Server) handleWireGuard(w http.ResponseWriter, r *http.Request) {
-	tunnels, _ := s.tunnelMgr.ListWireGuardTunnels()
 	s.tmpls["wireguard"].Execute(w, map[string]interface{}{
-		"Tunnels": tunnels,
+		"Config": s.config,
 	})
 }
 
 func (s *Server) handleDDNS(w http.ResponseWriter, r *http.Request) {
-	s.tmpls["ddns"].Execute(w, map[string]interface{}{
-		"Host": r.Host,
-	})
+	s.tmpls["ddns"].Execute(w, nil)
 }
 
 func (s *Server) handleTunnel(w http.ResponseWriter, r *http.Request) {
 	s.tmpls["tunnel"].Execute(w, nil)
 }
 
-func (s *Server) handleMonitor(w http.ResponseWriter, r *http.Request) {
-	status := s.tunnelMgr.GetModuleStatus()
-	s.tmpls["monitor"].Execute(w, map[string]interface{}{
-		"Status": status,
-	})
-}
-
-func (s *Server) handleAPIStatus(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s.tunnelMgr.GetModuleStatus())
-}
-
-func (s *Server) handleWireGuardCreate(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	name := r.Form.Get("name")
-	address := r.Form.Get("address")
-	port := 51820
-	fmt.Sscanf(r.Form.Get("port"), "%d", &port)
-	
-	err := s.tunnelMgr.CreateWireGuardTunnel(name, address, port)
-	if err != nil {
-		fmt.Fprintf(w, "创建失败: %v", err)
-		return
-	}
-	
-	http.Redirect(w, r, "/wireguard", http.StatusFound)
-}
-
-func (s *Server) handleWireGuardDelete(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Path[len("/api/wireguard/delete/"):]
-	err := s.tunnelMgr.DeleteWireGuardTunnel(name)
-	if err != nil {
-		fmt.Fprintf(w, "删除失败: %v", err)
-		return
-	}
-	http.Redirect(w, r, "/wireguard", http.StatusFound)
-}
-
-func (s *Server) handleDDNSConfig(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	fmt.Fprintf(w, "DDNS配置已保存 (暂未实现)")
-}
-
-func (s *Server) handleTunnelWSConfig(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	fmt.Fprintf(w, "wstunnel配置已保存 (暂未实现)")
-}
-
-func (s *Server) handleTunnelUDP2RawConfig(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	fmt.Fprintf(w, "udp2raw配置已保存 (暂未实现)")
-}
-
 // Run 运行服务器
 func (s *Server) Run() error {
 	addr := fmt.Sprintf(":%d", s.port)
 	fmt.Printf("Web界面: http://localhost%s\n", addr)
+	fmt.Printf("安装向导: http://localhost%s/wizard\n", addr)
 	return http.ListenAndServe(addr, s.mux)
 }
