@@ -69,7 +69,7 @@ install_wg_easy() {
         -v /etc/wireguard:/etc/wireguard \
         --restart=unless-stopped \
         --network wg-network \
-        weejewel/wg-easy:latest
+        ghcr.io/wg-easy/wg-easy:latest
     echo "wg-easy 安装完成"
 }
 
