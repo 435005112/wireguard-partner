@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os/exec"
 	"runtime"
-	"strings"
 )
 
 // Detection 环境检测结果
