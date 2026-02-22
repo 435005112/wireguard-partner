@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -33,7 +34,6 @@ func (m *TunnelMgr) CheckInstalled(p ProtocolType) (bool, error) {
 		name = "udp2raw"
 	}
 	
-	// 使用LookPath检测命令是否存在
 	_, err := exec.LookPath(name)
 	if err != nil {
 		return false, nil
@@ -56,48 +56,108 @@ func (m *TunnelMgr) GetVersion(p ProtocolType) (string, error) {
 	return strings.TrimSpace(string(output)), err
 }
 
-// StartWSTunnel 启动 wstunnel
-func (m *TunnelMgr) StartWSTunnel(listenAddr, remoteAddr, tunnelType string) error {
-	args := []string{
-		"-l", listenAddr,
-		"-r", remoteAddr,
-	}
-	
-	if tunnelType == "stunnel" {
-		args = append(args, "-t", "2")
-	}
-	
-	cmd := exec.Command("wstunnel", args...)
-	return cmd.Start()
-}
-
-// StartUDP2Raw 启动 udp2raw
-func (m *TunnelMgr) StartUDP2Raw(mode, localAddr, remoteAddr, password string) error {
-	args := []string{
-		fmt.Sprintf("-%s", mode), // -s or -c
-		fmt.Sprintf("-l%s", localAddr),
-		fmt.Sprintf("-r%s", remoteAddr),
-		"-k", password,
-		"--raw-mode", "faketcp",
-		"-a",
-	}
-	
-	cmd := exec.Command("udp2raw_amd64", args...)
-	return cmd.Start()
-}
-
-// StopProcess 停止进程
-func (m *TunnelMgr) StopProcess(name string) error {
-	cmd := exec.Command("pkill", name)
-	return cmd.Run()
-}
-
-// GetProcessStatus 获取进程状态
-func (m *TunnelMgr) GetProcessStatus(name string) (bool, error) {
-	cmd := exec.Command("pgrep", "-f", name)
-	err := cmd.Run()
+// CreateWireGuardTunnel 创建WireGuard隧道
+func (m *TunnelMgr) CreateWireGuardTunnel(name, address string, port int) error {
+	// 生成密钥
+	privateKey, err := exec.Command("wg", "genkey").Output()
 	if err != nil {
-		return false, nil // not running
+		return fmt.Errorf("生成私钥失败: %v", err)
 	}
-	return true, nil // running
+	
+	publicKey := strings.TrimSpace(string(privateKey))
+	pubKeyOutput, err := exec.Command("wg", "pubkey").Input(strings.NewReader(string(privateKey))).Output()
+	if err != nil {
+		return fmt.Errorf("生成公钥失败: %v", err)
+	}
+	
+	config := fmt.Sprintf(`[Interface]
+Address = %s
+ListenPort = %d
+PrivateKey = %s
+SaveConfig = true
+
+[Peer]
+# PublicKey = 
+# AllowedIPs = 0.0.0.0/0
+`, address, port, strings.TrimSpace(string(privateKey)))
+	
+	// 创建配置文件
+	configPath := fmt.Sprintf("/etc/wireguard/%s.conf", name)
+	os.WriteFile(configPath, []byte(config), 0600)
+	
+	// 启动隧道
+	cmd := exec.Command("wg-quick", "up", name)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("启动隧道失败: %v", err)
+	}
+	
+	return nil
+}
+
+// DeleteWireGuardTunnel 删除WireGuard隧道
+func (m *TunnelMgr) DeleteWireGuardTunnel(name string) error {
+	cmd := exec.Command("wg-quick", "down", name)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("停止隧道失败: %v", err)
+	}
+	
+	// 删除配置文件
+	configPath := fmt.Sprintf("/etc/wireguard/%s.conf", name)
+	os.Remove(configPath)
+	
+	return nil
+}
+
+// ListWireGuardTunnels 列出所有WireGuard隧道
+func (m *TunnelMgr) ListWireGuardTunnels() ([]string, error) {
+	cmd := exec.Command("wg", "show", "interfaces")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	
+	interfaces := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var tunnels []string
+	for _, i := range interfaces {
+		if i != "" {
+			tunnels = append(tunnels, i)
+		}
+	}
+	return tunnels, nil
+}
+
+// GetTunnelStatus 获取隧道状态
+func (m *TunnelMgr) GetTunnelStatus(iface string) (string, error) {
+	cmd := exec.Command("wg", "show", iface)
+	output, err := cmd.CombinedOutput()
+	return string(output), err
+}
+
+// GetModuleStatus 获取模块运行状态
+func (m *TunnelMgr) GetModuleStatus() map[string]interface{} {
+	status := make(map[string]interface{})
+	
+	// WireGuard状态
+	wgTunnels, _ := m.ListWireGuardTunnels()
+	status["wireguard"] = map[string]interface{}{
+		"installed": true,
+		"tunnels":   wgTunnels,
+		"count":     len(wgTunnels),
+	}
+	
+	// wstunnel状态
+	wsPID, _ := exec.Command("pgrep", "-f", "wstunnel").Output()
+	status["wstunnel"] = map[string]interface{}{
+		"installed": true,
+		"running":   len(wsPID) > 0,
+	}
+	
+	// udp2raw状态
+	udpPID, _ := exec.Command("pgrep", "-f", "udp2raw").Output()
+	status["udp2raw"] = map[string]interface{}{
+		"installed": true,
+		"running":   len(udpPID) > 0,
+	}
+	
+	return status
 }

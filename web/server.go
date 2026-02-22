@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"text/template"
+	"wireguard-partner/internal/tunnel"
 )
 
 var htmlTemplates = map[string]string{
@@ -31,6 +32,8 @@ var htmlTemplates = map[string]string{
         .status-item .value { font-size: 1.5rem; font-weight: bold; margin-top: 0.5rem; }
         .status-item .value.ok { color: #10b981; }
         .status-item .value.error { color: #ef4444; }
+        .status-item .value.running { color: #10b981; }
+        .status-item .value.stopped { color: #6b7280; }
         .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; }
         .btn:hover { background: #1d4ed8; }
         .btn-danger { background: #ef4444; }
@@ -58,23 +61,19 @@ var htmlTemplates = map[string]string{
     </nav>
     <div class="container">
         <div class="card">
-            <h2>系统状态</h2>
+            <h2>模块状态</h2>
             <div class="status-grid">
                 <div class="status-item">
-                    <div class="label">WireGuard</div>
-                    <div class="value {{if .Status.WireGuard}}ok{{else}}error{{end}}">{{if .Status.WireGuard}}✓ 已安装{{else}}✗ 未安装{{end}}</div>
+                    <div class="label">WireGuard 隧道</div>
+                    <div class="value {{if .Status.Wireguard.Count}}ok{{else}}error{{end}}">{{.Status.Wireguard.Count}} 个</div>
                 </div>
                 <div class="status-item">
                     <div class="label">wstunnel</div>
-                    <div class="value {{if .Status.WSTunnel}}ok{{else}}error{{end}}">{{if .Status.WSTunnel}}✓ 已安装{{else}}✗ 未安装{{end}}</div>
+                    <div class="value {{if .Status.WSTunnel.Running}}running{{else}}stopped{{end}}">{{if .Status.WSTunnel.Running}}运行中{{else}}未运行{{end}}</div>
                 </div>
                 <div class="status-item">
                     <div class="label">udp2raw</div>
-                    <div class="value {{if .Status.UDP2Raw}}ok{{else}}error{{end}}">{{if .Status.UDP2Raw}}✓ 已安装{{else}}✗ 未安装{{end}}</div>
-                </div>
-                <div class="status-item">
-                    <div class="label">运行隧道</div>
-                    <div class="value">{{ .TunnelCount }}</div>
+                    <div class="value {{if .Status.UDP2Raw.Running}}running{{else}}stopped{{end}}">{{if .Status.UDP2Raw.Running}}运行中{{else}}未运行{{end}}</div>
                 </div>
             </div>
         </div>
@@ -103,6 +102,8 @@ var htmlTemplates = map[string]string{
         .card h2 { margin-bottom: 1rem; color: #1f2937; }
         .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; }
         .btn:hover { background: #1d4ed8; }
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
         .form-group { margin-bottom: 1rem; }
         .form-group label { display: block; margin-bottom: 0.5rem; color: #374151; }
         .form-group input { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
@@ -124,15 +125,11 @@ var htmlTemplates = map[string]string{
     </nav>
     <div class="container">
         <div class="card">
-            <h2>WireGuard 隧道管理</h2>
-            <p><a href="/wireguard/new" class="btn">+ 新建隧道</a></p>
+            <h2>WireGuard 隧道列表</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>名称</th>
-                        <th>接口</th>
-                        <th>地址</th>
-                        <th>客户端数</th>
+                        <th>接口名称</th>
                         <th>状态</th>
                         <th>操作</th>
                     </tr>
@@ -140,15 +137,12 @@ var htmlTemplates = map[string]string{
                 <tbody>
                     {{range .Tunnels}}
                     <tr>
-                        <td>{{.Name}}</td>
-                        <td>{{.Interface}}</td>
-                        <td>{{.Address}}</td>
-                        <td>{{len .Peers}}</td>
+                        <td>{{.}}</td>
                         <td>活跃</td>
-                        <td><a href="/wireguard/edit/{{.Name}}">编辑</a></td>
+                        <td><a href="/wireguard/delete/{{.}}" class="btn btn-danger" onclick="return confirm('确定删除?')">删除</a></td>
                     </tr>
                     {{else}}
-                    <tr><td colspan="6">暂无隧道，请创建一个</td></tr>
+                    <tr><td colspan="3">暂无隧道</td></tr>
                     {{end}}
                 </tbody>
             </table>
@@ -157,12 +151,8 @@ var htmlTemplates = map[string]string{
             <h2>创建新隧道</h2>
             <form method="POST" action="/api/wireguard/create">
                 <div class="form-group">
-                    <label>隧道名称</label>
-                    <input type="text" name="name" placeholder="my-vpn" required>
-                </div>
-                <div class="form-group">
                     <label>接口名称</label>
-                    <input type="text" name="interface" placeholder="wg0" required>
+                    <input type="text" name="name" placeholder="wg0" required>
                 </div>
                 <div class="form-group">
                     <label>服务器地址 (CIDR)</label>
@@ -170,7 +160,7 @@ var htmlTemplates = map[string]string{
                 </div>
                 <div class="form-group">
                     <label>监听端口</label>
-                    <input type="number" name="listenPort" value="51820" required>
+                    <input type="number" name="port" value="51820" required>
                 </div>
                 <button type="submit" class="btn">创建隧道</button>
             </form>
@@ -195,6 +185,7 @@ var htmlTemplates = map[string]string{
         .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card h2 { margin-bottom: 1rem; color: #1f2937; }
         .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .btn:hover { background: #1d4ed8; }
         .form-group { margin-bottom: 1rem; }
         .form-group label { display: block; margin-bottom: 0.5rem; color: #374151; }
         .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
@@ -214,8 +205,39 @@ var htmlTemplates = map[string]string{
     <div class="container">
         <div class="card">
             <h2>DDNS 配置</h2>
-            <p>DDNS-GO 独立运行在此服务器端口 9876</p>
-            <p><a href="http://{{.Host}}:9876" target="_blank" class="btn">打开 DDNS-GO 管理界面</a></p>
+            <form method="POST" action="/api/ddns/config">
+                <div class="form-group">
+                    <label>DNS服务商</label>
+                    <select name="provider">
+                        <option value="aliyun">阿里云</option>
+                        <option value="cloudflare">Cloudflare</option>
+                        <option value="dnspod">腾讯云DNSPod</option>
+                        <option value="huawei">华为云</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>域名</label>
+                    <input type="text" name="domain" placeholder="example.com">
+                </div>
+                <div class="form-group">
+                    <label>子域名</label>
+                    <input type="text" name="subdomain" placeholder="vpn">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="text" name="apiKey" placeholder="API Key">
+                </div>
+                <div class="form-group">
+                    <label>API Secret</label>
+                    <input type="password" name="apiSecret" placeholder="API Secret">
+                </div>
+                <button type="submit" class="btn">保存配置</button>
+            </form>
+        </div>
+        <div class="card">
+            <h2>说明</h2>
+            <p>保存配置后，DDNS服务将自动启动并监听端口 9876</p>
+            <p>访问 http://{{.Host}}:9876 管理DDNS</p>
         </div>
     </div>
 </body>
@@ -237,6 +259,7 @@ var htmlTemplates = map[string]string{
         .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card h2 { margin-bottom: 1rem; color: #1f2937; }
         .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .btn:hover { background: #1d4ed8; }
         .form-group { margin-bottom: 1rem; }
         .form-group label { display: block; margin-bottom: 0.5rem; color: #374151; }
         .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; }
@@ -255,15 +278,8 @@ var htmlTemplates = map[string]string{
     </nav>
     <div class="container">
         <div class="card">
-            <h2>协议封装配置</h2>
-            <form method="POST" action="/api/tunnel/config">
-                <div class="form-group">
-                    <label>协议类型</label>
-                    <select name="type">
-                        <option value="wstunnel">wstunnel (WebSocket)</option>
-                        <option value="udp2raw">udp2raw (UDP伪TCP)</option>
-                    </select>
-                </div>
+            <h2>wstunnel 配置</h2>
+            <form method="POST" action="/api/tunnel/ws/config">
                 <div class="form-group">
                     <label>启用</label>
                     <select name="enable">
@@ -272,16 +288,37 @@ var htmlTemplates = map[string]string{
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>服务器地址</label>
-                    <input type="text" name="server" placeholder="example.com">
+                    <label>本地监听端口</label>
+                    <input type="number" name="localPort" value="51820">
                 </div>
                 <div class="form-group">
-                    <label>端口</label>
-                    <input type="number" name="port" value="443">
+                    <label>远程服务器</label>
+                    <input type="text" name="remote" placeholder="example.com:443">
+                </div>
+                <button type="submit" class="btn">保存配置</button>
+            </form>
+        </div>
+        <div class="card">
+            <h2>udp2raw 配置</h2>
+            <form method="POST" action="/api/tunnel/udp2raw/config">
+                <div class="form-group">
+                    <label>启用</label>
+                    <select name="enable">
+                        <option value="false">关闭</option>
+                        <option value="true">启用</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>本地端口</label>
+                    <input type="number" name="localPort" value="51820">
+                </div>
+                <div class="form-group">
+                    <label>远程服务器</label>
+                    <input type="text" name="remote" placeholder="example.com:443">
                 </div>
                 <div class="form-group">
                     <label>密码</label>
-                    <input type="password" name="password" placeholder="设置密码">
+                    <input type="password" name="password" placeholder="密码">
                 </div>
                 <button type="submit" class="btn">保存配置</button>
             </form>
@@ -305,10 +342,16 @@ var htmlTemplates = map[string]string{
         .container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
         .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card h2 { margin-bottom: 1rem; color: #1f2937; }
-        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
-        .status-item { padding: 1rem; background: #f9fafb; border-radius: 6px; text-align: center; }
-        .status-item .label { color: #6b7280; font-size: 0.875rem; }
-        .status-item .value { font-size: 1.5rem; font-weight: bold; margin-top: 0.5rem; }
+        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+        .status-item { padding: 1.5rem; background: #f9fafb; border-radius: 8px; text-align: center; }
+        .status-item .name { font-size: 1.25rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .status-item .info { color: #6b7280; margin-bottom: 0.5rem; }
+        .status-item .state { font-size: 1.5rem; font-weight: bold; }
+        .status-item .state.running { color: #10b981; }
+        .status-item .state.stopped { color: #6b7280; }
+        .status-item .state.error { color: #ef4444; }
+        .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; }
+        .btn-danger { background: #ef4444; }
     </style>
 </head>
 <body>
@@ -324,23 +367,34 @@ var htmlTemplates = map[string]string{
     </nav>
     <div class="container">
         <div class="card">
-            <h2>系统监控</h2>
+            <h2>模块运行状态</h2>
             <div class="status-grid">
                 <div class="status-item">
-                    <div class="label">CPU 使用率</div>
-                    <div class="value">{{.Stats.CPU}}%</div>
+                    <div class="name">WireGuard</div>
+                    <div class="info">隧道数: {{.Status.Wireguard.Count}}</div>
+                    {{if .Status.Wireguard.Count}}
+                    <div class="state running">运行中</div>
+                    {{else}}
+                    <div class="state stopped">无隧道</div>
+                    {{end}}
                 </div>
                 <div class="status-item">
-                    <div class="label">内存使用</div>
-                    <div class="value">{{.Stats.Memory}}%</div>
+                    <div class="name">wstunnel</div>
+                    <div class="info">WebSocket隧道</div>
+                    {{if .Status.WSTunnel.Running}}
+                    <div class="state running">运行中</div>
+                    {{else}}
+                    <div class="state stopped">未运行</div>
+                    {{end}}
                 </div>
                 <div class="status-item">
-                    <div class="label">上传速度</div>
-                    <div class="value">{{.Stats.Upload}}</div>
-                </div>
-                <div class="status-item">
-                    <div class="label">下载速度</div>
-                    <div class="value">{{.Stats.Download}}</div>
+                    <div class="name">udp2raw</div>
+                    <div class="info">UDP伪TCP</div>
+                    {{if .Status.UDP2Raw.Running}}
+                    <div class="state running">运行中</div>
+                    {{else}}
+                    <div class="state stopped">未运行</div>
+                    {{end}}
                 </div>
             </div>
         </div>
@@ -351,20 +405,21 @@ var htmlTemplates = map[string]string{
 
 // Server Web服务器
 type Server struct {
-	port    int
-	mux     *http.ServeMux
-	tmpls   map[string]*template.Template
+	port     int
+	mux      *http.ServeMux
+	tmpls    map[string]*template.Template
+	tunnelMgr *tunnel.TunnelMgr
 }
 
 // NewServer 创建Web服务器
 func NewServer(port int) *Server {
 	s := &Server{
-		port:  port,
-		mux:   http.NewServeMux(),
-		tmpls: make(map[string]*template.Template),
+		port:      port,
+		mux:       http.NewServeMux(),
+		tmpls:     make(map[string]*template.Template),
+		tunnelMgr: tunnel.NewTunnelMgr(),
 	}
 	
-	// 解析模板
 	for name, html := range htmlTemplates {
 		s.tmpls[name] = template.Must(template.New(name).Parse(html))
 	}
@@ -381,22 +436,23 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/monitor", s.handleMonitor)
 	s.mux.HandleFunc("/api/status", s.handleAPIStatus)
 	s.mux.HandleFunc("/api/wireguard/create", s.handleWireGuardCreate)
-	s.mux.HandleFunc("/api/tunnel/config", s.handleTunnelConfig)
+	s.mux.HandleFunc("/api/wireguard/delete/", s.handleWireGuardDelete)
+	s.mux.HandleFunc("/api/ddns/config", s.handleDDNSConfig)
+	s.mux.HandleFunc("/api/tunnel/ws/config", s.handleTunnelWSConfig)
+	s.mux.HandleFunc("/api/tunnel/udp2raw/config", s.handleTunnelUDP2RawConfig)
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	status := s.getStatus()
-	tunnelCount := 0
-	
+	status := s.tunnelMgr.GetModuleStatus()
 	s.tmpls["index"].Execute(w, map[string]interface{}{
 		"Status": status,
-		"TunnelCount": tunnelCount,
 	})
 }
 
 func (s *Server) handleWireGuard(w http.ResponseWriter, r *http.Request) {
+	tunnels, _ := s.tunnelMgr.ListWireGuardTunnels()
 	s.tmpls["wireguard"].Execute(w, map[string]interface{}{
-		"Tunnels": []interface{}{},
+		"Tunnels": tunnels,
 	})
 }
 
@@ -411,38 +467,56 @@ func (s *Server) handleTunnel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMonitor(w http.ResponseWriter, r *http.Request) {
+	status := s.tunnelMgr.GetModuleStatus()
 	s.tmpls["monitor"].Execute(w, map[string]interface{}{
-		"Stats": map[string]interface{}{
-			"CPU":      "0",
-			"Memory":   "0",
-			"Upload":   "0 KB/s",
-			"Download": "0 KB/s",
-		},
+		"Status": status,
 	})
 }
 
 func (s *Server) handleAPIStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s.getStatus())
+	json.NewEncoder(w).Encode(s.tunnelMgr.GetModuleStatus())
 }
 
 func (s *Server) handleWireGuardCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	name := r.Form.Get("name")
-	fmt.Fprintf(w, "创建隧道: %s", name)
-}
-
-func (s *Server) handleTunnelConfig(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	fmt.Fprintf(w, "配置已保存")
-}
-
-func (s *Server) getStatus() map[string]bool {
-	return map[string]bool{
-		"WireGuard": true,
-		"WSTunnel":  true,
-		"UDP2Raw":   true,
+	address := r.Form.Get("address")
+	port := 51820
+	fmt.Sscanf(r.Form.Get("port"), "%d", &port)
+	
+	err := s.tunnelMgr.CreateWireGuardTunnel(name, address, port)
+	if err != nil {
+		fmt.Fprintf(w, "创建失败: %v", err)
+		return
 	}
+	
+	http.Redirect(w, r, "/wireguard", http.StatusFound)
+}
+
+func (s *Server) handleWireGuardDelete(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Path[len("/api/wireguard/delete/"):]
+	err := s.tunnelMgr.DeleteWireGuardTunnel(name)
+	if err != nil {
+		fmt.Fprintf(w, "删除失败: %v", err)
+		return
+	}
+	http.Redirect(w, r, "/wireguard", http.StatusFound)
+}
+
+func (s *Server) handleDDNSConfig(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	fmt.Fprintf(w, "DDNS配置已保存 (暂未实现)")
+}
+
+func (s *Server) handleTunnelWSConfig(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	fmt.Fprintf(w, "wstunnel配置已保存 (暂未实现)")
+}
+
+func (s *Server) handleTunnelUDP2RawConfig(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	fmt.Fprintf(w, "udp2raw配置已保存 (暂未实现)")
 }
 
 // Run 运行服务器
