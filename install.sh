@@ -63,7 +63,7 @@ install_wg_easy() {
         --sysctl="net.ipv4.ip_forward=1" \
         --name wg-easy \
         -e WG_HOST=$(curl -s ifconfig.me) \
-        -e PASSWORD_HASH="$2a$12$7qHCKY2cyvjI/VpFDReRDOtZVNk.WH0qH8DOBnHjjuxtfrfKd0aui" \
+        -e PASSWORD_HASH="$2a$12$GPaZPHOpdokcGHVs2D7K9O2irlKU7dEsHwcoyGd2EYZCx1i/xPxW." \
         -p 51820:51820/udp \
         -p 51821:51821/tcp \
         -v /etc/wireguard:/etc/wireguard \
