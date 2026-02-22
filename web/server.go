@@ -387,48 +387,36 @@ func (s *Server) handleWizardTunnel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleWizardRestart(w http.ResponseWriter, r *http.Request) {
-	// 保存配置
-	homeDir := os.Getenv("HOME")
-	if homeDir == "" {
-		homeDir = "/root"
-	}
-	configDir := homeDir + "/.wireguard"
-	configPath := configDir + "/" + s.wizard.Wireguard.Name + ".conf"
-	
-	// 先停止
+	// 先清理可能存在的接口
 	exec.Command("ip", "link", "del", s.wizard.Wireguard.Name).Run()
 	
-	// 生成密钥
+	// 用wg命令直接创建，不使用配置文件
+	// 1. 创建虚拟接口
+	exec.Command("ip", "link", "add", "dev", s.wizard.Wireguard.Name, "type", "wireguard").Run()
+	
+	// 2. 设置地址
+	exec.Command("ip", "addr", "add", s.wizard.Wireguard.Address+"/24", "dev", s.wizard.Wireguard.Name).Run()
+	
+	// 3. 生成并设置私钥
 	keyCmd := exec.Command("wg", "genkey")
 	privateKey, _ := keyCmd.Output()
+	cmd := exec.Command("wg", "set", s.wizard.Wireguard.Name, "private-key", strings.TrimSpace(string(privateKey)))
+	cmd.Stdin = strings.NewReader(string(privateKey))
+	cmd.Run()
 	
-	// 写入配置（带一个虚拟Peer）
-	configContent := fmt.Sprintf(`[Interface]
-Address = %s
-ListenPort = %d
-PrivateKey = %s
-
-[Peer]
-PublicKey = 0000000000000000000000000000000000000000000=
-AllowedIPs = 0.0.0.0/0
-`, s.wizard.Wireguard.Address, s.wizard.Wireguard.Port, strings.TrimSpace(string(privateKey)))
+	// 4. 设置监听端口
+	exec.Command("wg", "set", s.wizard.Wireguard.Name, "listen-port", fmt.Sprintf("%d", s.wizard.Wireguard.Port)).Run()
 	
+	// 5. 启动接口
+	exec.Command("ip", "link", "set", "up", s.wizard.Wireguard.Name).Run()
 	
+	// 获取公钥
+	pubKeyCmd := exec.Command("wg", "pubkey")
+	pubKeyCmd.Stdin = strings.NewReader(string(privateKey))
+	publicKey, _ := pubKeyCmd.Output()
 	
-	os.MkdirAll(configDir, 0700)
-	os.WriteFile(configPath, []byte(configContent), 0600)
-	
-	// 启动
-	cmd := exec.Command("wg-quick", "up", s.wizard.Wireguard.Name)
-	output, err := cmd.CombinedOutput()
-	
-	if err != nil {
-		fmt.Fprintf(w, "启动失败: %v<br>%s<br><a href='/'>返回</a>", err, output)
-		return
-	}
-	
-	fmt.Fprintf(w, "✅ 服务已启动!<br>隧道: %s<br>地址: %s<br><a href='/'>返回概览</a>", 
-		s.wizard.Wireguard.Name, s.wizard.Wireguard.Address)
+	fmt.Fprintf(w, "✅ 服务已启动!<br>隧道: %s<br>地址: %s<br>公钥: %s<br><a href='/'>返回概览</a>", 
+		s.wizard.Wireguard.Name, s.wizard.Wireguard.Address, strings.TrimSpace(string(publicKey)))
 }
 
 func (s *Server) generateConfig() {
