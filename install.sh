@@ -33,7 +33,6 @@ check_docker() {
 
 # 安装Docker
 install_docker() {
-    # 检测系统并安装Docker
     if command -v apt-get &> /dev/null; then
         apt-get update
         apt-get install -y ca-certificates curl gnupg
@@ -48,28 +47,20 @@ install_docker() {
         yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
         yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     fi
-    
-    # 启动Docker
     systemctl start docker || service docker start
     systemctl enable docker || true
-    
     echo "Docker 安装完成"
 }
 
 # 安装wg-easy
 install_wg_easy() {
     echo "安装 wg-easy..."
-    
-    # 检测端口是否占用
     if docker ps -a | grep -q wg-easy; then
         echo "wg-easy 已安装"
+        docker start wg-easy 2>/dev/null || true
         return
     fi
-    
-    # 创建网络
     docker network create wg-network 2>/dev/null || true
-    
-    # 启动wg-easy
     docker run -d \
         --name wg-easy \
         -e WG_HOST=$(curl -s ifconfig.me) \
@@ -80,43 +71,44 @@ install_wg_easy() {
         --restart=unless-stopped \
         --network wg-network \
         weejewel/wg-easy:latest
-    
-    echo "wg-easy 安装完成，访问 http://<ip>:51821"
+    echo "wg-easy 安装完成"
 }
 
 # 安装ddns-go
 install_ddns_go() {
     echo "安装 ddns-go..."
+    if pgrep ddns-go &> /dev/null; then
+        echo "ddns-go 已安装"
+        return
+    fi
     
     ARCH=$(uname -m)
     case $ARCH in
-        x86_64) ARCH="amd64" ;;
+        x86_64) ARCH="x86_64" ;;
         aarch64) ARCH="arm64" ;;
     esac
     
-    # 下载ddns-go
-    URL="https://github.com/jeessy2/ddns-go/releases/latest/download/ddns-go_${ARCH}.tar.gz"
-    curl -L -o /tmp/ddns-go.tar.gz $URL
-    tar -xzf /tmp/ddns-go.tar.gz -C /tmp
+    VERSION=$(curl -s https://api.github.com/repos/jeessy2/ddns-go/releases/latest | grep -o '"tag_name": "v[^"]*' | cut -d'"' -f4)
+    URL="https://github.com/jeessy2/ddns-go/releases/download${VERSION}/ddns-go_${VERSION}_linux_${ARCH}.tar.gz"
     
-    # 安装
+    curl -L -o /tmp/ddns-go.tar.gz "$URL"
+    tar -xzf /tmp/ddns-go.tar.gz -C /tmp
     mv /tmp/ddns-go/ddns-go /usr/local/bin/
     chmod +x /usr/local/bin/ddns-go
-    
-    # 启动服务
-    if ! pgrep ddns-go &> /dev/null; then
-        ddns-go -s install
-    fi
-    
-    echo "ddns-go 安装完成，访问 http://<ip>:9876"
+    ddns-go -s install
+    echo "ddns-go 安装完成"
 }
 
 # 安装wstunnel
 install_wstunnel() {
     echo "安装 wstunnel..."
+    if command -v wstunnel &> /dev/null; then
+        echo "wstunnel 已安装"
+        return
+    fi
     
     ARCH=$(uname -m)
-    VERSION=$(curl -s https://api.github.com/repos/erebe/wstunnel/releases/latest | grep -o '"tag_name": ".*"' | cut -d'"' -f4)
+    VERSION=$(curl -s https://api.github.com/repos/erebe/wstunnel/releases/latest | grep -o '"tag_name": "v[^"]*' | cut -d'"' -f4)
     
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="x86_64"
@@ -124,9 +116,8 @@ install_wstunnel() {
         ARCH="arm64"
     fi
     
-    curl -L -o /usr/local/bin/wstunnel "https://github.com/erebe/wstunnel/releases/download/${VERSION}/wstunnel-${VERSION}-unknown-linux-${ARCH}"
+    curl -L -o /usr/local/bin/wstunnel "https://github.com/erebe/wstunnel/releases/download${VERSION}/wstunnel-${VERSION}-unknown-linux-${ARCH}"
     chmod +x /usr/local/bin/wstunnel
-    
     echo "wstunnel 安装完成"
 }
 
@@ -134,8 +125,6 @@ install_wstunnel() {
 main() {
     detect_os
     detect_arch
-    
-    # 先检测安装Docker
     check_docker
     
     echo ""
