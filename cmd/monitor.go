@@ -55,8 +55,8 @@ var tmpl = `
                 </div>
                 <div class="item">
                     <div class="name">wg-easy</div>
-                    <div class="value {{if .Status.WGEasy}}ok{{else}}error{{end}}">
-                        {{if .Status.WGEasy}}✓ 运行中{{else}}✗ 未运行{{end}}
+                    <div class="value {{if .Status.WG-Easy}}ok{{else}}error{{end}}">
+                        {{if .Status.WG-Easy}}✓ 运行中{{else}}✗ 未运行{{end}}
                     </div>
                 </div>
                 <div class="item">
@@ -105,7 +105,7 @@ func checkDocker() bool {
 	return cmd.Run() == nil
 }
 
-func checkWGEasy() bool {
+func checkWG-Easy() bool {
 	cmd := exec.Command("docker", "ps", "--filter", "name=wg-easy", "--format", "{{.Names}}")
 	output, _ := cmd.Output()
 	return strings.Contains(string(output), "wg-easy")
@@ -135,7 +135,7 @@ func checkWireGuard() bool {
 func getStatus() Status {
 	return Status{
 		Docker:    checkDocker(),
-		WGEasy:    checkWGEasy(),
+		WG-Easy:    checkWG-Easy(),
 		DDNSGo:   checkDDNSGo(),
 		WSTunnel:  checkWSTunnel(),
 		UDP2Raw:  checkUDP2Raw(),
