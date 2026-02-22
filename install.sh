@@ -57,6 +57,10 @@ install_wg_easy() {
     fi
     docker network create wg-network 2>/dev/null || true
     docker run -d \
+        --cap-add=NET_ADMIN \
+        --cap-add=SYS_MODULE \
+        --sysctl="net.ipv4.conf.all.src_valid_mark=1" \
+        --sysctl="net.ipv4.ip_forward=1" \
         --name wg-easy \
         -e WG_HOST=$(curl -s ifconfig.me) \
         -e PASSWORD=admin123 \
