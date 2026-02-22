@@ -57,19 +57,23 @@ install_wg_easy() {
     fi
     docker network create wg-network 2>/dev/null || true
     docker run -d \
+        --name wg-easy \
         --cap-add=NET_ADMIN \
         --cap-add=SYS_MODULE \
-        --sysctl="net.ipv4.conf.all.src_valid_mark=1" \
         --sysctl="net.ipv4.ip_forward=1" \
-        --name wg-easy \
+        --sysctl="net.ipv4.conf.all.src_valid_mark=1" \
+        --sysctl="net.ipv6.conf.all.disable_ipv6=0" \
+        --sysctl="net.ipv6.conf.all.forwarding=1" \
+        --sysctl="net.ipv6.conf.default.forwarding=1" \
         -e WG_HOST=$(curl -s ifconfig.me) \
-        -e PASSWORD_HASH="$2a$12$GPaZPHOpdokcGHVs2D7K9O2irlKU7dEsHwcoyGd2EYZCx1i/xPxW." \
+        -e INSECURE=true \
         -p 51820:51820/udp \
         -p 51821:51821/tcp \
         -v /etc/wireguard:/etc/wireguard \
+        -v /lib/modules:/lib/modules:ro \
         --restart=unless-stopped \
         --network wg-network \
-        ghcr.io/wg-easy/wg-easy:14
+        ghcr.io/wg-easy/wg-easy:15
     echo "wg-easy 安装完成"
 }
 
