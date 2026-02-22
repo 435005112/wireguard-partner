@@ -64,11 +64,14 @@ func (m *TunnelMgr) CreateWireGuardTunnel(name, address string, port int) error 
 		return fmt.Errorf("生成私钥失败: %v", err)
 	}
 	
-	publicKey := strings.TrimSpace(string(privateKey))
-	pubKeyOutput, err := exec.Command("wg", "pubkey").Input(strings.NewReader(string(privateKey))).Output()
+	pubKeyCmd := exec.Command("wg", "pubkey")
+	pubKeyCmd.Stdin = strings.NewReader(string(privateKey))
+	pubKeyOutput, err := pubKeyCmd.Output()
 	if err != nil {
 		return fmt.Errorf("生成公钥失败: %v", err)
 	}
+	
+	_ = pubKeyOutput // 公钥待用
 	
 	config := fmt.Sprintf(`[Interface]
 Address = %s
