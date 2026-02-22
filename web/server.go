@@ -3,7 +3,6 @@ package web
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"net/http"
 	"wireguard-partner/internal/config"
 	"wireguard-partner/internal/tunnel"
