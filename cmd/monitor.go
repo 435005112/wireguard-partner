@@ -9,12 +9,12 @@ import (
 )
 
 type Status struct {
-	Docker      bool
-	WG Easy    bool
-	DDNSGo     bool
-	WSTunnel   bool
-	UDP2Raw    bool
-	WireGuard  bool
+	Docker   bool
+	WGEasy   bool
+	DDNSGo   bool
+	WSTunnel bool
+	UDP2Raw  bool
+	WireGuard bool
 }
 
 var tmpl = `
@@ -36,7 +36,7 @@ var tmpl = `
         .item .value { font-size: 1.5rem; font-weight: bold; margin-top: 0.5rem; }
         .item .value.ok { color: #10b981; }
         .item .value.error { color: #ef4444; }
-        .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; }
+        .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin-right: 0.5rem; }
     </style>
 </head>
 <body>
@@ -55,8 +55,8 @@ var tmpl = `
                 </div>
                 <div class="item">
                     <div class="name">wg-easy</div>
-                    <div class="value {{if .Status.WG-Easy}}ok{{else}}error{{end}}">
-                        {{if .Status.WG-Easy}}✓ 运行中{{else}}✗ 未运行{{end}}
+                    <div class="value {{if .Status.WGEasy}}ok{{else}}error{{end}}">
+                        {{if .Status.WGEasy}}✓ 运行中{{else}}✗ 未运行{{end}}
                     </div>
                 </div>
                 <div class="item">
@@ -105,7 +105,7 @@ func checkDocker() bool {
 	return cmd.Run() == nil
 }
 
-func checkWG-Easy() bool {
+func checkWGEasy() bool {
 	cmd := exec.Command("docker", "ps", "--filter", "name=wg-easy", "--format", "{{.Names}}")
 	output, _ := cmd.Output()
 	return strings.Contains(string(output), "wg-easy")
@@ -134,10 +134,10 @@ func checkWireGuard() bool {
 
 func getStatus() Status {
 	return Status{
-		Docker:    checkDocker(),
-		WG-Easy:    checkWG-Easy(),
+		Docker:   checkDocker(),
+		WGEasy:   checkWGEasy(),
 		DDNSGo:   checkDDNSGo(),
-		WSTunnel:  checkWSTunnel(),
+		WSTunnel: checkWSTunnel(),
 		UDP2Raw:  checkUDP2Raw(),
 		WireGuard: checkWireGuard(),
 	}
