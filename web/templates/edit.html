@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>配置 - 协议转换</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; }
+        .header { background: #2563eb; color: white; padding: 1rem 2rem; }
+        .header h1 { font-size: 1.25rem; }
+        .container { padding: 1.5rem; max-width: 800px; margin: 0 auto; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1rem; }
+        .form-row { margin-bottom: 1rem; }
+        .form-label { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.375rem; font-weight: 500; color: #374151; font-size: 0.875rem; }
+        .help-icon { width: 16px; height: 16px; background: #9ca3af; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.625rem; cursor: help; position: relative; }
+        .help-icon:hover .tooltip { display: block; }
+        .tooltip { display: none; position: absolute; left: 20px; top: 0; background: #1f2937; color: white; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.75rem; white-space: nowrap; z-index: 100; }
+        .form-input, .form-select, .form-checkbox { width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem; }
+        .form-checkbox { width: auto; }
+        .checkbox-group { display: flex; align-items: center; gap: 0.5rem; }
+        .btn { display: inline-flex; align-items: center; padding: 0.625rem 1.25rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; text-decoration: none; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .section-title { font-size: 1rem; font-weight: 600; color: #1f2937; margin: 1.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e5e7eb; }
+        .section-title:first-child { margin-top: 0; }
+        .advanced-toggle { background: #f3f4f6; padding: 0.75rem; border-radius: 6px; margin-top: 1rem; cursor: pointer; font-size: 0.875rem; color: #4b5563; }
+        .advanced-toggle:hover { background: #e5e7eb; }
+        .advanced-content { display: none; margin-top: 1rem; }
+        .advanced-content.show { display: block; }
+        .radio-group { display: flex; gap: 1.5rem; }
+        .radio-option { display: flex; align-items: center; gap: 0.375rem; }
+        .radio-option input { width: auto; }
+        .field-required { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{if .EditMode}}编辑{{else}}新建{{end}}配置</h1>
+    </div>
+    <div class="container">
+        <form method="POST" action="/save">
+            <!-- 协议选择 -->
+            <div class="card">
+                <div class="form-row">
+                    <div class="form-label">协议类型</div>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="type" value="wstunnel" checked onchange="updateForm()"> wstunnel
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="type" value="udp2raw" onchange="updateForm()"> udp2raw
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">角色</div>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="role" value="client" checked onchange="updateForm()"> 客户端
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="role" value="server" onchange="updateForm()"> 服务端
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- wstunnel 客户端配置 -->
+            <div id="wstunnel-client" class="card">
+                <div class="section-title">wstunnel 客户端配置</div>
+                
+                <div class="form-row">
+                    <div class="form-label">
+                        配置名称 <span class="field-required">*</span>
+                        <span class="help-icon">?
+                            <span class="tooltip">唯一标识，用于systemd服务名</span>
+                        </span>
+                    </div>
+                    <input type="text" name="name" class="form-input" required placeholder="如: my-tunnel">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">
+                        服务器地址 <span class="field-required">*</span>
+                        <span class="help-icon">?
+                            <span class="tooltip">wstunnel服务器的域名或IP</span>
+                        </span>
+                    </div>
+                    <input type="text" name="server" class="form-input" required placeholder="如: tunnel.example.com">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">
+                        服务器端口 <span class="field-required">*</span>
+                    </div>
+                    <input type="number" name="port" class="form-input" value="443" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">
+                        本地隧道 <span class="field-required">*</span>
+                        <span class="help-icon">?
+                            <span class="tooltip">-L 参数，格式: tcp://本地端口:目标地址:目标端口</span>
+                        </span>
+                    </div>
+                    <input type="text" name="localTun" class="form-input" value="tcp://51820:localhost:51820" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="useTLS" id="useTLS" class="form-checkbox" checked>
+                        <label for="useTLS">
+                            使用TLS (wss://)
+                            <span class="help-icon">?
+                                <span class="tooltip">建议开启，流量更不容易被识别</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 高级设置 -->
+                <div class="advanced-toggle" onclick="toggleAdvanced('wstunnel-client-adv')">▼ 高级设置</div>
+                <div id="wstunnel-client-adv" class="advanced-content">
+                    <div class="form-row">
+                        <div class="form-label">
+                            SNI域名
+                            <span class="help-icon">?
+                                <span class="tooltip">TLS SNI伪装域名，配合CDN使用</span>
+                            </span>
+                        </div>
+                        <input type="text" name="sni" class="form-input" placeholder="如: google.com">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-label">
+                            路径前缀
+                            <span class="help-icon">?
+                                <span class="tooltip">HTTP升级路径前缀，默认v1</span>
+                            </span>
+                        </div>
+                        <input type="text" name="pathPrefix" class="form-input" value="v1">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-label">日志级别</div>
+                        <select name="logLevel" class="form-select">
+                            <option value="INFO" selected>INFO</option>
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="WARN">WARN</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="TRACE">TRACE</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-label">
+                            HTTP代理
+                            <span class="help-icon">?
+                                <span class="tooltip">格式: user:pass@host:port</span>
+                            </span>
+                        </div>
+                        <input type="text" name="httpProxy" class="form-input" placeholder="如: user:pass@proxy.com:8080">
+                    </div>
+                </div>
+            </div>
+
+            <!-- wstunnel 服务端配置 -->
+            <div id="wstunnel-server" class="card" style="display:none">
+                <div class="section-title">wstunnel 服务端配置</div>
+                
+                <div class="form-row">
+                    <div class="form-label">配置名称 <span class="field-required">*</span></div>
+                    <input type="text" name="name" class="form-input" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">监听地址 <span class="field-required">*</span></div>
+                    <input type="text" name="server" class="form-input" value="0.0.0.0:443" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">转发目标 <span class="field-required">*</span></div>
+                    <input type="text" name="localTun" class="form-input" value="localhost:51820" required>
+                </div>
+            </div>
+
+            <!-- udp2raw 客户端配置 -->
+            <div id="udp2raw-client" class="card" style="display:none">
+                <div class="section-title">udp2raw 客户端配置</div>
+                
+                <div class="form-row">
+                    <div class="form-label">配置名称 <span class="field-required">*</span></div>
+                    <input type="text" name="name" class="form-input" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">服务器地址 <span class="field-required">*</span></div>
+                    <input type="text" name="server" class="form-input" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">服务器端口 <span class="field-required">*</span></div>
+                    <input type="number" name="serverPort" class="form-input" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">
+                        本地监听 <span class="field-required">*</span>
+                        <span class="help-icon">?
+                            <span class="tooltip">本地UDP端口，转发给远程</span>
+                        </span>
+                    </div>
+                    <input type="text" name="localAddr" class="form-input" value="0.0.0.0:51820" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">
+                        远程目标 <span class="field-required">*</span>
+                        <span class="help-icon">?
+                            <span class="tooltip">服务器上要转发的目标地址</span>
+                        </span>
+                    </div>
+                    <input type="text" name="remoteAddr" class="form-input" value="localhost:51820" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">
+                        通信密钥 <span class="field-required">*</span>
+                        <span class="help-icon">?
+                            <span class="tooltip">服务端和客户端必须相同</span>
+                        </span>
+                    </div>
+                    <input type="password" name="key" class="form-input" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">
+                        传输模式 <span class="field-required">*</span>
+                        <span class="help-icon">?
+                            <span class="tooltip">faketcp: 模拟TCP，适合UDP被墙; udp: 普通UDP; icmp: ICMP隧道</span>
+                        </span>
+                    </div>
+                    <select name="mode" class="form-select">
+                        <option value="faketcp" selected>faketcp (推荐)</option>
+                        <option value="udp">udp</option>
+                        <option value="icmp">icmp</option>
+                        <option value="easy-faketcp">easy-faketcp</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">加密方式</div>
+                    <select name="cipher" class="form-select">
+                        <option value="aes128cbc" selected>aes128cbc</option>
+                        <option value="aes128cfb">aes128cfb</option>
+                        <option value="xor">xor</option>
+                        <option value="none">none</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">认证方式</div>
+                    <select name="auth" class="form-select">
+                        <option value="hmac_sha1">hmac_sha1</option>
+                        <option value="md5" selected>md5</option>
+                        <option value="crc32">crc32</option>
+                        <option value="simple">simple</option>
+                        <option value="none">none</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="autoIPT" id="autoIPT" class="form-checkbox" checked>
+                        <label for="autoIPT">
+                            自动iptables
+                            <span class="help-icon">?
+                                <span class="tooltip">自动添加iptables规则，FakeTCP建议开启</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 高级设置 -->
+                <div class="advanced-toggle" onclick="toggleAdvanced('udp2raw-client-adv')">▼ 高级设置</div>
+                <div id="udp2raw-client-adv" class="advanced-content">
+                    <div class="form-row">
+                        <div class="form-label">日志级别 (0-6)</div>
+                        <input type="number" name="logLevel" class="form-input" value="4" min="0" max="6">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-label">
+                            强制源IP
+                            <span class="help-icon">?
+                                <span class="tooltip">--source-ip</span>
+                            </span>
+                        </div>
+                        <input type="text" name="sourceIP" class="form-input" placeholder="如: 1.2.3.4">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="checkbox-group">
+                            <input type="checkbox" name="disableReplay" id="disableReplay" class="form-checkbox">
+                            <label for="disableReplay">禁用防重放</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-label">绑定设备</div>
+                        <input type="text" name="device" class="form-input" placeholder="如: eth0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- udp2raw 服务端配置 -->
+            <div id="udp2raw-server" class="card" style="display:none">
+                <div class="section-title">udp2raw 服务端配置</div>
+                
+                <div class="form-row">
+                    <div class="form-label">配置名称 <span class="field-required">*</span></div>
+                    <input type="text" name="name" class="form-input" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">监听地址 <span class="field-required">*</span></div>
+                    <input type="text" name="server" class="form-input" value="0.0.0.0" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">监听端口 <span class="field-required">*</span></div>
+                    <input type="number" name="serverPort" class="form-input" value="443" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">转发目标 <span class="field-required">*</span></div>
+                    <input type="text" name="localAddr" class="form-input" value="127.0.0.1:51820" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">通信密钥 <span class="field-required">*</span></div>
+                    <input type="password" name="key" class="form-input" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-label">传输模式</div>
+                    <select name="mode" class="form-select">
+                        <option value="faketcp" selected>faketcp</option>
+                        <option value="udp">udp</option>
+                        <option value="icmp">icmp</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="autoIPT" id="autoIPT-server" class="form-checkbox" checked>
+                        <label for="autoIPT-server">自动iptables</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">保存配置</button>
+                <a href="/" class="btn btn-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+
+    <script>
+    function updateForm() {
+        var type = document.querySelector('input[name="type"]:checked').value;
+        var role = document.querySelector('input[name="role"]:checked').value;
+        
+        // 隐藏所有
+        document.getElementById('wstunnel-client').style.display = 'none';
+        document.getElementById('wstunnel-server').style.display = 'none';
+        document.getElementById('udp2raw-client').style.display = 'none';
+        document.getElementById('udp2raw-server').style.display = 'none';
+        
+        // 显示对应的
+        if (type === 'wstunnel') {
+            if (role === 'client') {
+                document.getElementById('wstunnel-client').style.display = 'block';
+            } else {
+                document.getElementById('wstunnel-server').style.display = 'block';
+            }
+        } else {
+            if (role === 'client') {
+                document.getElementById('udp2raw-client').style.display = 'block';
+            } else {
+                document.getElementById('udp2raw-server').style.display = 'block';
+            }
+        }
+    }
+    
+    function toggleAdvanced(id) {
+        var el = document.getElementById(id);
+        el.classList.toggle('show');
+    }
+    
+    // 初始化
+    updateForm();
+    </script>
+</body>
+</html>
